@@ -126,9 +126,16 @@ class Game {
         // 添加初始状态标志
         this.isInitialState = true;
         
+        // 添加加载状态元素
+        this.loadingScreen = document.getElementById('loadingScreen');
+        this.errorScreen = document.getElementById('errorScreen');
+        
         // 初始化事件监听
         this.initEventListeners();
-        this.loadAudio();
+        this.loadAudio().catch(error => {
+            console.error('音频加载失败:', error);
+            this.showError();
+        });
         this.updateBestScore();
 
         // 立即绘制初始界面
@@ -152,7 +159,7 @@ class Game {
         });
     }
 
-    // 添加音频加载方法
+    // 修改音频加载方法
     async loadAudio() {
         try {
             const songSelect = document.getElementById('songSelect');
@@ -165,8 +172,33 @@ class Game {
             this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
             this.musicDuration = this.audioBuffer.duration * 1000; // 转换为毫秒
             console.log('音频加载成功，时长:', this.musicDuration, 'ms');
+            this.hideLoading();
         } catch (error) {
             console.error('音频加载失败:', error);
+            this.showError();
+            throw error;
+        }
+    }
+
+    // 添加加载状态处理方法
+    showLoading() {
+        if (this.loadingScreen) {
+            this.loadingScreen.style.display = 'flex';
+        }
+    }
+
+    hideLoading() {
+        if (this.loadingScreen) {
+            this.loadingScreen.style.display = 'none';
+        }
+    }
+
+    showError() {
+        if (this.errorScreen) {
+            this.errorScreen.style.display = 'flex';
+        }
+        if (this.loadingScreen) {
+            this.loadingScreen.style.display = 'none';
         }
     }
 
@@ -273,42 +305,46 @@ class Game {
 
     // 修改开始游戏方法
     async startGame() {
-        this.isInitialState = false; // 关闭初始状态
-        if (!this.audioBuffer) {
-            await this.loadAudio();
-        }
+        this.isInitialState = false;
+        this.showLoading();
+        
+        try {
+            if (!this.audioBuffer) {
+                await this.loadAudio();
+            }
 
-        this.isPlaying = true;
-        this.score = 0;
-        this.tiles = [];
-        this.speed = this.baseSpeed;
-        
-        // 设置音频
-        if (this.audioSource) {
-            this.audioSource.stop();
+            this.isPlaying = true;
+            this.score = 0;
+            this.tiles = [];
+            this.speed = this.baseSpeed;
+            
+            if (this.audioSource) {
+                this.audioSource.stop();
+            }
+            this.audioSource = this.audioContext.createBufferSource();
+            this.audioSource.buffer = this.audioBuffer;
+            this.audioSource.connect(this.analyser);
+            this.audioSource.connect(this.audioContext.destination);
+            
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+            }
+            
+            this.musicStartTime = Date.now();
+            
+            this.audioSource.onended = () => {
+                this.gameOver();
+            };
+            
+            this.audioSource.start(0);
+            this.updateScore();
+            this.addNewRow();
+            this.gameLoop();
+            this.hideLoading();
+        } catch (error) {
+            console.error('游戏启动失败:', error);
+            this.showError();
         }
-        this.audioSource = this.audioContext.createBufferSource();
-        this.audioSource.buffer = this.audioBuffer;
-        this.audioSource.connect(this.analyser);
-        this.audioSource.connect(this.audioContext.destination);
-        
-        // 确保音频上下文是激活的
-        if (this.audioContext.state === 'suspended') {
-            await this.audioContext.resume();
-        }
-        
-        // 记录开始时间
-        this.musicStartTime = Date.now();
-        
-        // 添加音乐结束件监听
-        this.audioSource.onended = () => {
-            this.gameOver(); // true表示正常结束
-        };
-        
-        this.audioSource.start(0);
-        this.updateScore();
-        this.addNewRow();
-        this.gameLoop();
     }
 
     // 修改节拍检测方法

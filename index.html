@@ -8,6 +8,14 @@
 </head>
 <body>
     <div class="game-container">
+        <div id="loadingScreen" class="loading-screen">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">加载中...</div>
+        </div>
+        <div id="errorScreen" class="error-screen" style="display: none;">
+            <div class="error-message">加载失败，请刷新重试</div>
+            <button onclick="location.reload()">重试</button>
+        </div>
         <div class="game-header">
             <div class="score">得分: <span id="score">0</span></div>
             <div class="best-score">最高分: <span id="bestScore">0</span></div>
